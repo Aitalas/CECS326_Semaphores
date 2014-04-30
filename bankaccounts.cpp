@@ -10,7 +10,7 @@
 #include <sys/shm.h>
 #include "semaphore.h"
 
-//g++ semaphore.cpp boundedbuff.cpp
+//g++ semaphore.cpp bankaccounts.cpp
 //./a.out	
 
 const int MAXCHAR = 10;
@@ -18,8 +18,12 @@ const int BUFFSIZE = 3;
 enum {SAVE, CHECK, VACA}; 
 
 //Function Prototype
+void operateAccount();
+void depositeSavings();
+void withdrawChecking();
+void transferSavingsToVacation();
+void transferSaveVacaToChecking();
 void parent_cleanup(SEMAPHORE &, int);
-
 
 int main(){
 	//Initialization
@@ -27,6 +31,9 @@ int main(){
 	int WITHDRAW = 100;
 	int SAVINGS_TO_VACATION = 150;
 	int SAVEVACA_TO_CHECKING = 200;
+	int savings = 100;
+	int checking = 100;
+	int vacation = 100;
 
 	//Initialize shared buffer of 3 integers
 	int shmid;
@@ -35,17 +42,46 @@ int main(){
 	shmid = shmget(IPC_PRIVATE, BUFFSIZE*sizeof(int), PERMS);
 	shmBUF = (int *)shmat(shmid, 0, SHM_RND);//shmBUF points to new buffer memory
 
-	if(fork()){ /* parent process */
+	*(shmBUF + 0) = savings;//load the shared balance variables into buffer
+	*(shmBUF + 1) = checking;
+	*(shmBUF + 2) = vacation;
 
-		producer_proc(sem, shmBUF);//***parent
-		parent_cleanup(sem, shmid);
-
-	} else { // child process
-		consumer_proc(sem, shmBUF);//***child
+	//Fork 3 child processes
+	for (int i = 0; i < 3, i++) {
+		if (fork()) {
+			//Parent process
+			parent_cleanup(sem, shmid);
+		} else {
+			//Child process
+			operateAccount();
+		}
 	}
 
 	exit(0);
 } // main
+
+void operateAccount() {
+	//Do 100 operations on accounts
+	for (int i = 0; i < 100; i++) {
+
+	}
+}
+
+void depositSavings() {
+
+}
+
+void withdrawChecking() {
+
+}
+
+void transferSavingsToVacation() {
+
+}
+
+void transferSaveVacaToChecking() {
+
+}
 
 void parent_cleanup (SEMAPHORE &sem, int shmid) {
 
@@ -74,9 +110,9 @@ Initialization:
 		int vacation = 800;
 
 	Initialize 3 semaphores.
-		SAVE	= 
-		CHECK	=
-		VACA	=
+		SAVE	= ?
+		CHECK	= ?
+		VACA	= ?
 
 Operations:
 	1. Deposit fund or interest.				[3001]

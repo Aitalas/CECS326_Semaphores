@@ -1,8 +1,61 @@
-/*	Questions
-	
-	Parent process and 3 child processes.
-	How exactly do I do this? and what account's balance do I act on first?
-*/
+#include <iostream.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <limits.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include "semaphore.h"
+
+//g++ semaphore.cpp boundedbuff.cpp
+//./a.out	
+
+const int MAXCHAR = 10;
+const int BUFFSIZE = 3;
+enum {SAVE, CHECK, VACA}; 
+
+//Function Prototype
+void parent_cleanup(SEMAPHORE &, int);
+
+
+int main(){
+	//Initialization
+	int DEPOSIT = 50;
+	int WITHDRAW = 100;
+	int SAVINGS_TO_VACATION = 150;
+	int SAVEVACA_TO_CHECKING = 200;
+
+	//Initialize shared buffer of 3 integers
+	int shmid;
+	char *shmBUF;
+
+	shmid = shmget(IPC_PRIVATE, BUFFSIZE*sizeof(int), PERMS);
+	shmBUF = (int *)shmat(shmid, 0, SHM_RND);//shmBUF points to new buffer memory
+
+	if(fork()){ /* parent process */
+
+		producer_proc(sem, shmBUF);//***parent
+		parent_cleanup(sem, shmid);
+
+	} else { // child process
+		consumer_proc(sem, shmBUF);//***child
+	}
+
+	exit(0);
+} // main
+
+void parent_cleanup (SEMAPHORE &sem, int shmid) {
+
+	int status;			/* child status */
+	wait(0);			/* wait for child to exit */
+					//deallocates the shared memory
+	shmctl(shmid, IPC_RMID, NULL);	/* cleaning up */
+	sem.remove();			//deallocates the semaphores
+} // parent_cleanup
+
 
 
 /*

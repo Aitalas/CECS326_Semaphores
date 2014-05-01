@@ -23,7 +23,9 @@ enum {SAVE, CHECK, VACA};//Semaphore variables
 int DEPOSIT = 50;
 int WITHDRAW = 100;
 int SAVINGS_TO_VACATION = 150;
-int SAVEVACA_TO_CHECKING = 200;
+int SAVEVACA_TO_CHECK = 200;
+
+int operations = 1;
 
 //Function Prototype
 void depositeSavings(SEMAPHORE &, int *);
@@ -35,9 +37,9 @@ void parent_cleanup(SEMAPHORE &, int);
 
 int main(){
 	//Initialize balance variables
-	int savings = 500;
-	int checking = 500;
-	int vacation = 500;
+	int savings = 1000;
+	int checking = 1000;
+	int vacation = 1000;
 	long childPID;
 
 	//Initialize shared buffer of 3 integers
@@ -57,85 +59,121 @@ int main(){
 	sem.V(CHECK);
 	sem.V(VACA);
 
-	cout << "[" << getpid() << "]: Initial values of all accounts: 500\n";
+	cout << "[" << getpid() << "]: shmid = " << shmid << endl;
+	cout << "[" << getpid() << "]: Initial values of all accounts: 1000\n";
 
 	for (int i = 0; i < 3; i++) {
 		childPID = fork();
 
 		if (childPID == 0) {
 			//Child process
-			cout << "[" << getpid() << "]: Operating.\n";
+			cout << "[" << getpid() << "]: Operating.";
 			operateAccount(sem, shmBUF);
 			break;
-		} else {
-			//Parent process
-			wait(0);
 		}
 	}
 
+	wait(0);
 	parent_cleanup(sem, shmid);
 	cout << "\n[" << getpid() << "]: Cleaning up and ending.\n";
+
 	exit(0);
 } // main
 
 void depositSavings(SEMAPHORE &sem, int *shmBUF) {
-	int savings;
+	int* savings;
 
 	sem.P(SAVE);
 
-	savings = *(shmBUF + 0);
-	savings = savings + DEPOSIT;
-	*(shmBUF + 0) = savings;
-	cout << "\n[" << getpid() << "]:===========================================\n";
-	cout << "\t[savings][deposit]\t[+ " << DEPOSIT << "][" << *(shmBUF + 0) << "]\n";
+	savings = (shmBUF + 0);
+	*savings = *savings + DEPOSIT;
+	cout << "\n[" << getpid() << "][" << operations << "]:";
+	cout << "[savings][deposit]\t[+ " << DEPOSIT << "][" << *savings << "]\n";
+	operations++;
 
 	sem.V(SAVE);
 }
 
 void withdrawChecking(SEMAPHORE &sem, int *shmBUF) {
-	int checking;
+	int* checking;
 
 	sem.P(CHECK);
+	checking = (shmBUF + 1);
 
-	checking = *(shmBUF + 1);
-	checking = checking - WITHDRAW;
-	*(shmBUF + 1) = checking;
-	cout << "\n[" << getpid() << "]:===========================================\n";
-	cout << "\t[checking][withdraw]\t[- " << WITHDRAW << "][" << *(shmBUF + 1) << "]\n";
+	if (WITHDRAW < *checking) {
+		*checking = *checking - WITHDRAW;
+		cout << "\n[" << getpid() << "][" << operations << "]:";
+		cout << "[checking][withdraw]\t[- " << WITHDRAW << "][" << *checking << "]\n";
+		operations++;
+	}
 
 	sem.V(CHECK);
 }
 
 void transferSavingsToVacation(SEMAPHORE &sem, int *shmBUF) {
+	int* savings;
+	int* vacation;
+
 	sem.P(SAVE);
 	sem.P(VACA);
 
-	*(shmBUF + 0) = *(shmBUF + 0) - SAVINGS_TO_VACATION;
-	*(shmBUF + 2) = *(shmBUF + 2) + SAVINGS_TO_VACATION;	
+	savings = (shmBUF + 0);
+	vacation = (shmBUF + 2);
 
-	cout << "\n[" << getpid() << "]:===========================================\n";
-	cout << "\t[savings][withdraw]\t[- " << SAVINGS_TO_VACATION << "][" << *(shmBUF + 0) 			<< "]\n";
-	cout << "\t[vacation][deposit]\t[+ " << SAVINGS_TO_VACATION << "][" << *(shmBUF + 2) 			<< "]\n";
+	if (SAVINGS_TO_VACATION < *savings) {
+		*savings = *savings - SAVINGS_TO_VACATION;//take from savings
+		*vacation = *vacation + SAVINGS_TO_VACATION;//put into vacation
+
+		cout << "\n[" << getpid() << "][" << operations << "]:";
+		cout << "[savings][withdraw]\t[- " << SAVINGS_TO_VACATION << "][" << *savings 				<< "]\n";
+		cout << "\t[vacation][deposit]\t[+ " << SAVINGS_TO_VACATION << "][" << *vacation 				<< "]\n";
+		operations++;
+	}
 
 	sem.V(VACA);
-	sem.P(SAVE);
+	sem.V(SAVE);
 }
 
 void transferSaveVacaToChecking(SEMAPHORE &sem, int *shmBUF) {
-	cout << "\n[" << getpid() << "]:===========================================\n";
+	int* savings;
+	int* checking;
+	int* vacation;
+	
+	sem.P(SAVE);
+	sem.P(CHECK);
+	sem.P(VACA);
+
+	savings = shmBUF + 0;
+	checking = shmBUF + 1;
+	vacation = shmBUF + 2;
+
+	if (SAVEVACA_TO_CHECK < *savings && SAVEVACA_TO_CHECK < *vacation) {
+		*savings = *savings - SAVEVACA_TO_CHECK;
+		*vacation = *vacation - SAVEVACA_TO_CHECK;
+		*checking = *checking + 2*SAVEVACA_TO_CHECK;
+
+		cout << "\n[" << getpid() << "][" << operations << "]:";
+		cout << "[savings][withdraw]\t[- " << SAVEVACA_TO_CHECK << "][" << *savings 				<< "]\n";
+		cout << "\t[vacation][withdraw]\t[- " << SAVEVACA_TO_CHECK << "][" << *vacation 				<< "]\n";
+		cout << "\t[checking][deposit]\t[+ " << 2*SAVEVACA_TO_CHECK << "][" << *checking 				<< "]\n";
+		operations++;
+	}
+	
+	sem.V(VACA);
+	sem.V(CHECK);
+	sem.V(SAVE);
 }
 
 void operateAccount(SEMAPHORE &sem, int *shmBUF) {
 	int randomNum;
 	srand (time(NULL));
-	randomNum = rand() % 30000 + 503;//number in range 503 to 30000
 
 	//depositSavings(sem, shmBUF);
 
-	for (int i = 0; i < 100; i++) {
-				
+	while (operations != 6) {//do 100 operations
+		randomNum = rand();// % 30000 + 503;//number in range 503 to 30000
 
-		if (randomNum % 3001 == 0) {
+		if (randomNum % 3001 == 0) {			
 			depositSavings(sem, shmBUF);
 		} else if (randomNum % 503 == 0) {
 			withdrawChecking(sem, shmBUF);

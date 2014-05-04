@@ -1,3 +1,12 @@
+//Cynthia Nguyen
+//CECS326
+//Semaphore Program
+//This program has three shared accounts: savings, checking, and vacation.
+//Four processes (parent and 3 children) will act on them, using semaphores
+//to block any process from corrupting the balances as needed.
+//All four processes will execute 100 account operations before ending, 
+//where the parent will then clean up the shared buffer and end.
+
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,9 +19,6 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include "semaphore.h"
-
-//g++ semaphore.cpp bankaccounts.cpp
-//./a.out	
 
 using namespace std;
 
@@ -97,8 +103,10 @@ int main(){
 } 
 
 
-//Deposit a set amount into the savings account and increment operations
-//Then print the pid, operation, amount added/subtracted, and new balance
+//Deposit a set amount into the savings account and increment operations.
+//Then print the pid, operation, amount added/subtracted, and new balance.
+//This also blocks any other process from accessing the savings account
+//while this is operating.
 void depositSavings(SEMAPHORE &sem, int *shmBUF, int & operations) {
 	int* savings;
 
@@ -132,7 +140,9 @@ void withdrawChecking(SEMAPHORE &sem, int *shmBUF, int & operations) {
 }
 
 //Transfer a set amount from savings to vacation and increment operations.
-//Then print the pid, operation, amount added/subtracted, and new balance
+//Then print the pid, operation, amount added/subtracted, and new balance.
+//Since both savings and vacation accounts are acted on, processes will
+//be blocked from accessing them until this action is done.
 void transferSavingsToVacation(SEMAPHORE &sem, int *shmBUF, int & operations) {
 	int* savings;
 	int* vacation;
@@ -159,7 +169,9 @@ void transferSavingsToVacation(SEMAPHORE &sem, int *shmBUF, int & operations) {
 
 //Transfer a set amount from savings and vacation into checking, then 
 //increment operations.
-//Then print the pid, operation, amount added/subtracted, and new balance
+//Then print the pid, operation, amount added/subtracted, and new balance.
+//This action operation acts on all three accounts, so processes 
+//will be blocked from all accounts until the action is done.
 void transferSaveVacaToChecking(SEMAPHORE &sem, int *shmBUF, int & operations) {
 	int* savings;
 	int* checking;
@@ -222,112 +234,3 @@ void parent_cleanup (SEMAPHORE &sem, int shmid) {
 	shmctl(shmid, IPC_RMID, NULL);	/* cleaning up */
 	sem.remove();			//deallocates the semaphores
 } // parent_cleanup
-
-
-
-/*
-
-Start.
-
-Initialization:
-	int DEPOSIT = 50;
-	int WITHDRAW = 100;
-	int SAVINGS_TO_VACATION = 150;
-	int SAVEVACA_TO_CHECK = 200;
-
-	Initialize shared buffer with 3 slots for each balance variable:
-		int savings = 500;
-		int checking = 300;
-		int vacation = 800;
-
-	Initialize 3 semaphores.
-		SAVE	= ?
-		CHECK	= ?
-		VACA	= ?
-
-Operations:
-	1. Deposit fund or interest.				[3001]
-	2. Withdraw or clear check.				[503]
-	3. Transfer from savings to vacation account.		[10007]
-	4. Transfer from vacation and savings to checking.	[4001]
-
-fork();
-fork();
-fork();
-
-Loop 100 times.
-
-	Generate random number between 503 and onwards.
-	If random number is divisible by [3001],
-
-		P(SAVE)
-
-		Add DEPOSIT to savings.
-		Save checking.
-		Print [childpid]: ========================================
-		Print [savings account][new balance].
-
-		V(SAVE)
-
-	Else if random number is divisible by [503],
-
-	If WITHDRAW < checking,
-
-		P(CHECK)
-
-		Subtract WITHDRAW from checking.
-		Save checking.
-	
-		Print [childpid]: ========================================
-		Print [checking account][new balance].
-
-		V(CHECK)
-
-	Else if random number is divisible by [10007],
-
-	If SAVINGS_TO_VACATION < savings,
-
-		P(SAVE)			
-		P(VACA)
-
-		Subtract SAVINGS_TO_VACATION from savings.
-		ADD SAVINGS_TO_VACATION to vacation.
-		Save savings.
-		Save vacation.
-
-		Print [childpid]: ========================================
-		Print [savings account][SAVINGS_TO_VACATION][new balance].
-		Print [vacation account][SAVINGS_TO_VACATION][new balance].
-
-		V(VACA)
-		P(SAVE)
-
-
-	Else if random number is divisible by [4001],
-
-	If SAVEVACA_TO_CHECK < savings &&
-		SAVEVACA_TO_CHECK < vacation,
-
-		P(SAVE)
-		P(VACA)
-
-		Subtract SAVEVACA_TO_CHECK from savings.
-		Subtract SAVEVACA_TO_CHECK from vacation.
-		Add SAVEVACA_TO_CHECK to checking.
-		Save savings.
-		Save vacation.
-		Save checking.
-
-		Print [childpid]: ========================================
-		Print [savings account][SAVEVACA_TO_CHECK][new balance].
-		Print [vacation account][SAVEVACA_TO_CHECK][new balance].
-		Print [checking account][2*SAVEVACA_TO_CHECK][new balance].
-	
-		V(SAVE)
-		V(VACA)
-
-Endloop.
-
-End.
-
-*/
